@@ -44,8 +44,8 @@
 	class DorfBuilding {
 		id;
 		slot;
-		type;
 		element;
+		type;
 		constructor(id) {
 			this.id = id
 			this.slot = 'a' + id;
@@ -60,6 +60,10 @@
 		canUpgrade() {
 			return this.element.children[0].classList[2] !== "notNow"
 				&& this.element.children[0].classList[2] !== "maxLevel"
+		}
+
+		isEmpty() {
+			return this.type === BuildingType.EMPTY;
 		}
 	}
 
@@ -77,6 +81,21 @@
 			}
 		}
 
+		static getBuildingDetail() {
+			let b = new BuildingDetail();
+			if(b.type === BuildingType.EMPTY) {
+				return new EmptyBuildingDetail(b);
+			}
+			return b;
+		}
+
+		copy(buildingDetail) {
+			this.type = buildingDetail.type;
+			this.level = buildingDetail.level;
+			this.upgradeButton = buildingDetail.upgradeButton;
+			return this;
+		}
+
 		canUpgrade() {
 				return !!this.upgradeButton && this.upgradeButton.classList[1] === "green";
 		}
@@ -84,6 +103,43 @@
 		upgrade() {
 			if(this.canUpgrade()) {
 				this.upgradeButton.click();
+			}
+		}
+
+		isEmpty() {
+			return this.type === BuildingType.EMPTY;
+		}
+	}
+
+	class EmptyBuildingDetail extends BuildingDetail {
+		constructor(buildingDetail) {
+			super();
+			super.copy(buildingDetail);
+		}
+
+		parentIdEquals(id, type) {
+			let buildingElement = document.getElementById("contract_building" + type);
+			return !!buildingElement && buildingElement.parentElement.parentElement.id === id;
+		}
+
+		//isEmpty or parentIdEquals should be checked before this. Otherwise the return value might be null
+		getBuildButton(type) {
+			return document.querySelector("#contract_building" + type + " > .contractLink > button")
+		}
+
+		canBuildNow(type) {
+			return this.isEmpty && this.parentIdEquals("build", type) && this.getBuildButton(type).classList[1] === "green";
+		}
+
+		//Check if it is on the "soon" list or in "now" list but can't be build due to resources or full building queue
+		canBuildSoon(type) {
+			return this.isEmpty && (this.parentIdEquals("build_list_soon", type)
+				|| (this.parentIdEquals("build", type) && this.getBuildButton(type).classList[1] === "gold"));
+		}
+
+		build(type) {
+			if (this.canBuildNow(type)) {
+				getBuildButton(type).click()
 			}
 		}
 	}
@@ -95,21 +151,22 @@
 
 
 
-
-
 	function handleCityView() {
-	    console.log(new DorfBuilding(20).canUpgrade());
-	    console.log(new DorfBuilding(19).canUpgrade());
-	    console.log(new DorfBuilding(29).canUpgrade());
+	    // console.log(new DorfBuilding(20).canUpgrade());
+	    // console.log(new DorfBuilding(19).canUpgrade());
+	    // console.log(new DorfBuilding(29).canUpgrade());
 	}
 
 	function handleBuildingView() {
-	    let b = new BuildingDetail();
+	    let b = BuildingDetail.getBuildingDetail();
 
-	    console.log(b.type);
-	    console.log(b.level);
-	    console.log(b.upgradeButton);
-	    console.log(b.canUpgrade());
+	    // console.log(b.type);
+	    // console.log(b.level);
+	    // console.log(b.upgradeButton);
+	    // console.log(b.canUpgrade());
+	    // console.log(b.isEmpty());
+	    console.log(b.canBuildNow(BuildingType.TREASURY))
+	    // console.log(b.build(BuildingType.CRANNY))
 	}
     
 
