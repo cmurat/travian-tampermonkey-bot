@@ -4,7 +4,7 @@ class Configuration {
     static LOOP_MS = 1000;
     static REFRESH_LOOP_COUNT = 60;
 
-    static IMPROVE_VILLAGE = -99;
+    static IMPROVE_VILLAGE = -2;
 }
 
 const BuildingType = {
