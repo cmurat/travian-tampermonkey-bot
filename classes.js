@@ -1,10 +1,12 @@
 'use strict';
 
+const ACTION_LIST_VERSION = 1;
 class Configuration {
     static LOOP_MS = 1000;
     static REFRESH_LOOP_COUNT = 60;
 
-    static IMPROVE_VILLAGE = -2;
+    static IMPROVE_VILLAGE = -1;
+    static ACTION_LIST = []
 }
 
 const BuildingType = {
@@ -46,8 +48,19 @@ const Pages = {
     BUILDING_DETAIL: '/build.php'
 }
 
-const Action = {
+const ActionType = {
     UPGRADE: '--UPGRADE'
+}
+
+class Action {
+    type;
+    buildingType;
+    slot;
+    constructor(type, buildingType, slot) {
+        this.type = type;
+        this.buildingType = buildingType;
+        this.slot = slot;
+    }
 }
 
 class ResorceBuilding {

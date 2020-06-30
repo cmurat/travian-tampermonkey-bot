@@ -33,7 +33,7 @@
         var buildings = filterBuildingsByUpgradable(sortBuildingsByLevel(getBuildings()));
         var building = buildings[0];
         if (!!building) {
-            localStorage.setItem(Action.UPGRADE, building.locationId);
+            localStorage.setItem(ActionType.UPGRADE, building.locationId);
             building.goToView();
         }
     }
@@ -53,8 +53,8 @@
     function handleBuildingView() {
         let b = BuildingDetail.getBuildingDetail();
 
-        if (parseInt(localStorage.getItem(Action.UPGRADE)) === b.locationId &&  b.canUpgrade()) {
-            localStorage.removeItem(Action.UPGRADE);
+        if (parseInt(localStorage.getItem(ActionType.UPGRADE)) === b.locationId &&  b.canUpgrade()) {
+            localStorage.removeItem(ActionType.UPGRADE);
             b.upgrade();
         }
     }
@@ -87,8 +87,6 @@
         loopCount++;
         setTimeout(main, Configuration.LOOP_MS);
     }
-
-    console.log(Configuration.IMPROVE_VILLAGE);
 
     main();
     // Your code here...
