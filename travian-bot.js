@@ -23,6 +23,7 @@
 	function handleResouceView() {
 		function getBuildings() {
 			var buildings = [];
+			//Building slots for the city view is between 1 and 18, inclusive.
 			for (var i = 1; i <= 18; i++) {
 				buildings.push(new ResorceBuilding(i));
 			}
@@ -40,6 +41,7 @@
 	function handleCityView() {
 		function getBuildings() {
 			var buildings = [];
+			//Building slots for the city view is between 19 and 39, inclusive.
 			for (var i = 19; i <= 39; i++) {
 				buildings.push(new DorfBuilding(i));
 			}
@@ -51,7 +53,7 @@
 	function handleBuildingView() {
 	    let b = BuildingDetail.getBuildingDetail();
 
-	    if (localStorage.getItem(Action.UPGRADE) === b.locationId, b.canUpgrade()) {
+	    if (parseInt(localStorage.getItem(Action.UPGRADE)) === b.locationId &&  b.canUpgrade()) {
 	    	localStorage.removeItem(Action.UPGRADE);
 	    	b.upgrade();
 	    }
@@ -59,28 +61,32 @@
 
 	//Main control loop.
 	var loopCount = 0;
+	var villages = new Villages();
 	function main() {
+		//Skip the first loop so that configuration changes take effect.
+		if (loopCount !== 0) {
+			switch (window.location.pathname) {
+				case Pages.RESOURCES:
+					handleResouceView();
+					break;
+				case Pages.CITY:
+					handleCityView();
+					break;
+				case Pages.BUILDING_DETAIL:
+					handleBuildingView();
+					break;
+				default:
+					console.warn("Unknown view");
+					break;
+			}
+
+			if (loopCount > Configuration.REFRESH_LOOP_COUNT) {
+				window.location.reload();
+			}
+		}
 		loopCount++;
-		switch (window.location.pathname) {
-			case Pages.RESOURCES:
-				handleResouceView();
-				break;
-			case Pages.CITY:
-				handleCityView();
-				break;
-			case Pages.BUILDING_DETAIL:
-				handleBuildingView();
-				break;
-			default:
-				console.warn("Unknown view");
-				break;
-		}
-		if (loopCount > 10) {
-			window.location.reload();
-		}
-		setTimeout(main, 1000);
+		setTimeout(main, Configuration.LOOP_MS);
 	}
-	
 
 	main();
     // Your code here...
