@@ -1,13 +1,54 @@
 'use strict';
 
+const STORAGE_PREFIX = '--CM--';
+const STORAGE_ACTION_LIST_VERSION = STORAGE_PREFIX + 'STORAGE_ACTION_LIST_VERSION';
+const STORAGE_ACTION_LIST_INDEX = STORAGE_PREFIX + 'STORAGE_ACTION_LIST_INDEX';
+
+class LocalStorageUtils {
+    static set(key, value) {
+        localStorage.setItem(key, value);
+    }
+
+    static getInt(key) {
+        return parseInt(localStorage.getItem(key));
+
+    }
+
+
+}
+
 class Configuration {
     static LOOP_MS = 1000;
     static REFRESH_LOOP_COUNT = 60;
 
+    //When the action list changes, the version must be also changes
+    //so that the bot will start from the desired action instead of the last executed action.
     static ACTION_LIST_VERSION = 1;
+    static ACTION_LIST_START_INDEX = 0;
     static ACTION_LIST = []
-}
 
+    static SEND_HERO_ON_ADVENTURE_WHEN_AVAILABLE = true;
+
+    //NOT ATOMIC!!!!
+    static incrementAndSaveCurrentAction() {
+        const currentActionIndex = Configuration.getCurrentActionListIndex();
+        if (Configuration.getCurrentActionListVersion() !== Configuration.ACTION_LIST_VERSION
+            || !!currentActionIndex) {
+            LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, Configuration.ACTION_LIST_START_INDEX);
+        } else {
+            LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, currentActionIndex + 1);
+        }
+        LocalStorageUtils.set(STORAGE_ACTION_LIST_VERSION, Configuration.ACTION_LIST_VERSION);
+    }
+
+    static getCurrentActionListVersion() {
+        return LocalStorageUtils.getInt(STORAGE_ACTION_LIST_VERSION);
+    }
+
+    static getCurrentActionListIndex() {
+        return LocalStorageUtils.getInt(STORAGE_ACTION_LIST_INDEX);
+    }
+}
 const BuildingType = {
     EMPTY: 0,
     FOREST: 1,              //Oduncu
@@ -41,6 +82,10 @@ const BuildingType = {
     FEEDER: 41              //Yalak
 }
 
+const TroopType = {
+    MIGRANT: [10, BuildingType.EMBASSY]
+}
+
 const Pages = {
     RESOURCES: '/dorf1.php',
     CITY: '/dorf2.php',
@@ -48,17 +93,28 @@ const Pages = {
 }
 
 const ActionType = {
-    UPGRADE: '--UPGRADE'
+    UPGRADE: 'UPGRADE',
+    TRAIN_TROOP: 'TRAIN_TROOP'
 }
 
 class Action {
     type;
-    buildingType;
+
     slot;
-    constructor(type, buildingType, slot) {
+    buildingType;
+
+    troopType;
+    troopAmount;
+    troopBuildingType;
+    constructor(type, buildingType, slot, troopType, troopAmount, troopBuildingType) {
         this.type = type;
+
         this.buildingType = buildingType;
         this.slot = slot;
+
+        this.troopType = troopType;
+        this.troopAmount = troopAmount;
+        this.troopBuildingType = troopBuildingType;
     }
 }
 
