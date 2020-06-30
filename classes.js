@@ -1,11 +1,10 @@
 'use strict';
 
-const ACTION_LIST_VERSION = 1;
 class Configuration {
     static LOOP_MS = 1000;
     static REFRESH_LOOP_COUNT = 60;
 
-    static IMPROVE_VILLAGE = -1;
+    static ACTION_LIST_VERSION = 1;
     static ACTION_LIST = []
 }
 
