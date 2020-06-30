@@ -6,8 +6,8 @@
 // @author       You
 // @match        https://*.travian.com.tr/*
 // @grant        none
-// @require      file:///Users/cmurat/Documents/workspace/travian-tampermonkey-bot/classes.js
-// @require      file:///Users/cmurat/Documents/workspace/travian-tampermonkey-bot/travian-bot.js
+// @require      https://raw.githubusercontent.com/cmurat/travian-tampermonkey-bot/master/classes.js
+// @require      https://raw.githubusercontent.com/cmurat/travian-tampermonkey-bot/master/travian-bot.js
 // ==/UserScript==
 
 (function() {
