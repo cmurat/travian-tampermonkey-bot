@@ -9,35 +9,35 @@ class Configuration {
 
 const BuildingType = {
     EMPTY: 0,
-    FOREST: 1,				//Oduncu
-    CLAY: 2,				//Tugla Ocagi
-    IRON: 3,				//Demir Madeni
-    CROP: 4,				//Tarla
-    LUMBER_MILL: 5, 		//Kereste Fabriaksi
-    CLAY_OVEN: 6, 			//Tugla Firini
-    FOUNDRY: 7, 			//Dokumhane
-    GRAIN_MILL: 8, 			//Degirmen
-    BAKERY: 9, 				//Ekmek Firini
-    DEPOT: 10, 				//Hammadde deposu
-    ARMORY: 13,				//Zirh Dokumhanesi
-    LARGE_DEPOT: 38, 		//Buyuk Hammadde Deposu
-    GRANARY: 11, 			//Tahil Deposu
-    LARGE_GRANARY: 39, 		//Buyuk Tahil Deposu
-    TOURNAMENT_AREA: 14, 	//Turnuva Yeri
-    MILITARY_BASE: 16,		//Askeri Us
-    MARKET: 17,				//Pazar Yeri
-    EMBASSY: 18,			//Elcilik
-    BARRACKS: 19, 			//Kisla
-    STABLE: 20, 			//Ahir
-    SIEGE_WORKS: 21, 		//Tamirhane
-    ACADEMY: 22, 			//Akademi
-    CRANNY: 23,				//Siginak
-    MUNICIPALITY: 24,		//Belediye
-    TREASURY: 27,			//Hazine
-    TRADE_CENTER: 28,		//Ticari Merkez
-    MASONRY: 34,			//Tasci
-    HERO_BARRACKS: 37,		//Kahraman Kislasi
-    FEEDER: 41				//Yalak
+    FOREST: 1,              //Oduncu
+    CLAY: 2,                //Tugla Ocagi
+    IRON: 3,                //Demir Madeni
+    CROP: 4,                //Tarla
+    LUMBER_MILL: 5,         //Kereste Fabriaksi
+    CLAY_OVEN: 6,           //Tugla Firini
+    FOUNDRY: 7,             //Dokumhane
+    GRAIN_MILL: 8,          //Degirmen
+    BAKERY: 9,              //Ekmek Firini
+    DEPOT: 10,              //Hammadde deposu
+    ARMORY: 13,             //Zirh Dokumhanesi
+    LARGE_DEPOT: 38,        //Buyuk Hammadde Deposu
+    GRANARY: 11,            //Tahil Deposu
+    LARGE_GRANARY: 39,      //Buyuk Tahil Deposu
+    TOURNAMENT_AREA: 14,    //Turnuva Yeri
+    MILITARY_BASE: 16,      //Askeri Us
+    MARKET: 17,             //Pazar Yeri
+    EMBASSY: 18,            //Elcilik
+    BARRACKS: 19,           //Kisla
+    STABLE: 20,             //Ahir
+    SIEGE_WORKS: 21,        //Tamirhane
+    ACADEMY: 22,            //Akademi
+    CRANNY: 23,             //Siginak
+    MUNICIPALITY: 24,       //Belediye
+    TREASURY: 27,           //Hazine
+    TRADE_CENTER: 28,       //Ticari Merkez
+    MASONRY: 34,            //Tasci
+    HERO_BARRACKS: 37,      //Kahraman Kislasi
+    FEEDER: 41              //Yalak
 }
 
 const Pages = {
