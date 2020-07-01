@@ -1,6 +1,9 @@
 (function() {
     'use strict';
 
+    let loopCount = 0;
+    let villages = new Villages();
+
     //For both Dorf buildings
     function sortBuildingsByLevel(buildings) {
         buildings.sort(
@@ -20,29 +23,29 @@
         return buildings.filter(function(building) {return building.type === type;});
     }
 
-    function handleResouceView() {
+    //DELETE THIS
+    function handleResourceView() {
         function getBuildings() {
-            var buildings = [];
-            //Building slots for the city view is between 1 and 18, inclusive.
-            for (var i = 1; i <= 18; i++) {
-                buildings.push(new ResorceBuilding(i));
+            let buildings = [];
+            for (let i = RESOURCE_LOCATION_ID_START; i <= RESOURCE_LOCATION_ID_END; i++) {
+                buildings.push(new ResourceBuilding(i));
             }
             return buildings;
         }
 
-        var buildings = filterBuildingsByUpgradable(sortBuildingsByLevel(getBuildings()));
-        var building = buildings[0];
+        let buildings = filterBuildingsByUpgradable(sortBuildingsByLevel(getBuildings()));
+        let building = buildings[0];
         if (!!building) {
             localStorage.setItem(ActionType.UPGRADE, building.locationId);
-            building.goToView();
+            building.goToDetailView();
         }
     }
 
+    //DELETE THIS
     function handleCityView() {
         function getBuildings() {
-            var buildings = [];
-            //Building slots for the city view is between 19 and 39, inclusive.
-            for (var i = 19; i <= 39; i++) {
+            let buildings = [];
+            for (let i = CITY_LOCATION_ID_START; i <= CITY_LOCATION_ID_END; i++) {
                 buildings.push(new DorfBuilding(i));
             }
             return buildings;
@@ -53,32 +56,75 @@
     function handleBuildingView() {
         let b = BuildingDetail.getBuildingDetail();
 
-        if (parseInt(localStorage.getItem(ActionType.UPGRADE)) === b.locationId &&  b.canUpgrade()) {
+        if (parseInt(localStorage.getItem(ActionType.UPGRADE)) === b.locationId
+            && b.canUpgrade()) {
             localStorage.removeItem(ActionType.UPGRADE);
             b.upgrade();
         }
     }
 
-    //Main control loop.
-    var loopCount = 0;
-    var villages = new Villages();
+    function executeUpgradeActionInResourceView(action) {
+        ViewUtils.goToPage(Pages.RESOURCES);
+    }
+
+    function executeUpgradeActionInCityView(action) {
+        if (ViewUtils.getPagePathname() !== Pages.BUILDING_DETAIL) {
+            ViewUtils.goToBuildingDetail(action.locationId);
+        }
+
+        let buildingDetail = BuildingDetail.getBuildingDetail();
+        if (buildingDetail.isEmpty()
+            && buildingDetail.canBuildNow(action.buildingType)) {
+            buildingDetail.build(action.buildingType);
+        } else {
+            if (buildingDetail.level >= action.buildingLevel) {
+                Configuration.incrementAndSaveCurrentAction();
+                return;
+            }
+            if (buildingDetail.canUpgrade()) {
+                buildingDetail.upgrade();
+            }
+        }
+    }
+
+    //No null checks for actions.
+    function executeUpgradeAction(action) {
+        let buildingType = action.buildingType;
+        let locationId = action.locationId;
+
+        let buildingInResourceView = DorfUtils.isBuildingInResourceView(buildingType);
+        if (buildingInResourceView !== DorfUtils.isLocationIdInResourceView(locationId)) {
+            console.warn("Skipping action. The building and the locationId are not in the same view. Action: " + action);
+            Configuration.incrementAndSaveCurrentAction();
+        }
+
+        if (buildingInResourceView) {
+            executeUpgradeActionInResourceView(action);
+        } else {
+            executeUpgradeActionInCityView(action);
+        }
+    }
+
+    function executeCurrentAction() {
+        let currentAction = Configuration.getCurrentAction();
+        if (!!!currentAction) {
+            return;
+        }
+        console.log("Executing action: " + currentAction);
+        switch (currentAction.type) {
+            case ActionType.UPGRADE:
+                executeUpgradeAction(currentAction);
+                break;
+            default:
+                console.log("Unknown action type: " + currentAction.type);
+        }
+    }
+
     function main() {
+        // debugger;
         //Skip the first loop so that configuration changes take effect.
         if (loopCount !== 0) {
-            switch (window.location.pathname) {
-                case Pages.RESOURCES:
-                    handleResouceView();
-                    break;
-                case Pages.CITY:
-                    handleCityView();
-                    break;
-                case Pages.BUILDING_DETAIL:
-                    handleBuildingView();
-                    break;
-                default:
-                    console.warn("Unknown view");
-                    break;
-            }
+            executeCurrentAction();
 
             if (loopCount > Configuration.REFRESH_LOOP_COUNT) {
                 window.location.reload();
@@ -87,6 +133,10 @@
         loopCount++;
         setTimeout(main, Configuration.LOOP_MS);
     }
+
+    Configuration.ACTION_LIST_VERSION = 2
+    Configuration.ACTION_LIST.push(
+        new Action(ActionType.UPGRADE, 32, BuildingType.MANSION, 10));
 
     main();
     // Your code here...

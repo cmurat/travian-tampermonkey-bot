@@ -1,8 +1,48 @@
 'use strict';
 
+const RESOURCE_LOCATION_ID_START = 1;
+const RESOURCE_LOCATION_ID_END = 18;
+const CITY_LOCATION_ID_START = 19;
+const CITY_LOCATION_ID_END = 39;
+
 const STORAGE_PREFIX = '--CM--';
 const STORAGE_ACTION_LIST_VERSION = STORAGE_PREFIX + 'STORAGE_ACTION_LIST_VERSION';
 const STORAGE_ACTION_LIST_INDEX = STORAGE_PREFIX + 'STORAGE_ACTION_LIST_INDEX';
+
+class DorfUtils {
+    static isLocationIdInResourceView(locationId) {
+        return RESOURCE_LOCATION_ID_START <= locationId && locationId <= RESOURCE_LOCATION_ID_END;
+    }
+
+    static isLocationIdInCityView(locationId) {
+        return CITY_LOCATION_ID_START <= locationId && locationId <= CITY_LOCATION_ID_END;
+    }
+
+    static isBuildingInResourceView(buildingType) {
+        return [BuildingType.CROP, BuildingType.CLAY, BuildingType.FOREST, BuildingType.IRON]
+            .includes(buildingType);
+    }
+}
+
+class ViewUtils {
+    static getPagePathname() {
+        return window.location.pathname;
+    }
+
+    static changeView(href) {
+        window.location.href = href;
+    }
+
+    static goToBuildingDetail(locationId) {
+        this.changeView('build.php?id=' + locationId);
+    }
+
+    static goToPage(page) {
+        if (this.getPagePathname() !== page) {
+            this.changeView(page);
+        }
+    }
+}
 
 class LocalStorageUtils {
     static set(key, value) {
@@ -13,8 +53,6 @@ class LocalStorageUtils {
         return parseInt(localStorage.getItem(key));
 
     }
-
-
 }
 
 class Configuration {
@@ -25,30 +63,43 @@ class Configuration {
     //so that the bot will start from the desired action instead of the last executed action.
     static ACTION_LIST_VERSION = 1;
     static ACTION_LIST_START_INDEX = 0;
-    static ACTION_LIST = []
+    static ACTION_LIST = [];
 
     static SEND_HERO_ON_ADVENTURE_WHEN_AVAILABLE = true;
-
-    //NOT ATOMIC!!!!
-    static incrementAndSaveCurrentAction() {
-        const currentActionIndex = Configuration.getCurrentActionListIndex();
-        if (Configuration.getCurrentActionListVersion() !== Configuration.ACTION_LIST_VERSION
-            || !!currentActionIndex) {
-            LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, Configuration.ACTION_LIST_START_INDEX);
-        } else {
-            LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, currentActionIndex + 1);
-        }
-        LocalStorageUtils.set(STORAGE_ACTION_LIST_VERSION, Configuration.ACTION_LIST_VERSION);
-    }
 
     static getCurrentActionListVersion() {
         return LocalStorageUtils.getInt(STORAGE_ACTION_LIST_VERSION);
     }
 
+    static resetActionList() {
+        LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, Configuration.ACTION_LIST_START_INDEX);
+        LocalStorageUtils.set(STORAGE_ACTION_LIST_VERSION, Configuration.ACTION_LIST_VERSION);
+    }
+
+    static verifyAndSetVersion() {
+        if (Configuration.getCurrentActionListVersion() !== Configuration.ACTION_LIST_VERSION) {
+            Configuration.resetActionList();
+        }
+    }
+
+    static incrementAndSaveCurrentAction() {
+        Configuration.verifyAndSetVersion();
+        LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, Configuration.getCurrentActionListIndex() + 1);
+    }
+
     static getCurrentActionListIndex() {
+        Configuration.verifyAndSetVersion();
+        if (isNaN(LocalStorageUtils.getInt(STORAGE_ACTION_LIST_INDEX))) {
+            Configuration.resetActionList();
+        }
         return LocalStorageUtils.getInt(STORAGE_ACTION_LIST_INDEX);
     }
+
+    static getCurrentAction() {
+        return Configuration.ACTION_LIST[Configuration.getCurrentActionListIndex()]
+    }
 }
+
 const BuildingType = {
     EMPTY: 0,
     FOREST: 1,              //Oduncu
@@ -75,6 +126,7 @@ const BuildingType = {
     ACADEMY: 22,            //Akademi
     CRANNY: 23,             //Siginak
     MUNICIPALITY: 24,       //Belediye
+    MANSION: 25,            //Kosk
     TREASURY: 27,           //Hazine
     TRADE_CENTER: 28,       //Ticari Merkez
     MASONRY: 34,            //Tasci
@@ -100,17 +152,19 @@ const ActionType = {
 class Action {
     type;
 
-    slot;
+    locationId;
     buildingType;
+    buildingLevel;
 
     troopType;
     troopAmount;
     troopBuildingType;
-    constructor(type, buildingType, slot, troopType, troopAmount, troopBuildingType) {
+    constructor(type, locationId, buildingType, buildingLevel, troopType, troopAmount, troopBuildingType) {
         this.type = type;
 
         this.buildingType = buildingType;
-        this.slot = slot;
+        this.buildingLevel = buildingLevel;
+        this.locationId = locationId;
 
         this.troopType = troopType;
         this.troopAmount = troopAmount;
@@ -118,7 +172,7 @@ class Action {
     }
 }
 
-class ResorceBuilding {
+class ResourceBuilding {
     locationId;
     element;
     type;
@@ -129,7 +183,7 @@ class ResorceBuilding {
         this.locationId = locationId
         this.element = document.getElementsByClassName('buildingSlot' + this.locationId)[0];
 
-        var classList = this.element.classList;
+        let classList = this.element.classList;
         this.type = parseInt(classList[3].replace("gid", ""));
         this.level = parseInt(classList[classList.length - 1].replace("level", ""));
         this.underConstruction = classList.contains("underConstruction");
@@ -138,12 +192,12 @@ class ResorceBuilding {
         }
     }
 
-    goToView() {
-        window.location.href = 'build.php?id=' + this.locationId;
+    goToDetailView() {
+        ViewUtils.goToBuildingDetail(this.locationId);
     }
 
     canUpgrade() {
-        var classList = this.element.classList;
+        let classList = this.element.classList;
         return !classList.contains("notNow")
             && !classList.contains("maxLevel");
     }
@@ -162,12 +216,12 @@ class DorfBuilding {
         this.type = parseInt(this.element.classList[2].replace("g", ""));
     }
 
-    goToView() {
-        window.location.href = 'build.php?id=' + this.locationId;
+    goToDetailView() {
+        ViewUtils.goToBuildingDetail(this.locationId);
     }
 
     canUpgrade() {
-        var classList = this.element.children[0].classList;
+        let classList = this.element.children[0].classList;
         return !classList.contains("notNow")
             && !classList.contains("maxLevel");
     }
@@ -183,13 +237,14 @@ class BuildingDetail {
     level;
     upgradeButton;
 
+    //Don't use this, use the #getBuildingDetail method.
     constructor() {
         let buildElementClasses = document.getElementById("build").classList;
         this.type = parseInt(buildElementClasses[0].replace("gid", ""));
         this.locationId = parseInt(window.location.search.replace("?id=", ""));
         if (this.type !== 0) {
             this.level = buildElementClasses[1].replace("level", "");
-            this.upgradeButton = document.querySelector("#build > div.upgradeBuilding > div.upgradeButtonsContainer.section2Enabled > div.section1 > button");
+            this.upgradeButton = document.querySelector("#build > div.upgradeBuilding > div.upgradeButtonsContainer button");
         }
     }
 
@@ -251,7 +306,7 @@ class EmptyBuildingDetail extends BuildingDetail {
 
     build(type) {
         if (this.canBuildNow(type)) {
-            getBuildButton(type).click()
+            this.getBuildButton(type).click()
         }
     }
 }
