@@ -8,56 +8,15 @@ const CITY_LOCATION_ID_END = 39;
 const STORAGE_PREFIX = '--CM--';
 const STORAGE_ACTION_LIST_VERSION = STORAGE_PREFIX + 'STORAGE_ACTION_LIST_VERSION';
 const STORAGE_ACTION_LIST_INDEX = STORAGE_PREFIX + 'STORAGE_ACTION_LIST_INDEX';
-
-class DorfUtils {
-    static isLocationIdInResourceView(locationId) {
-        return RESOURCE_LOCATION_ID_START <= locationId && locationId <= RESOURCE_LOCATION_ID_END;
-    }
-
-    static isLocationIdInCityView(locationId) {
-        return CITY_LOCATION_ID_START <= locationId && locationId <= CITY_LOCATION_ID_END;
-    }
-
-    static isBuildingInResourceView(buildingType) {
-        return [BuildingType.CROP, BuildingType.CLAY, BuildingType.FOREST, BuildingType.IRON]
-            .includes(buildingType);
-    }
-}
-
-class ViewUtils {
-    static getPagePathname() {
-        return window.location.pathname;
-    }
-
-    static changeView(href) {
-        window.location.href = href;
-    }
-
-    static goToBuildingDetail(locationId) {
-        this.changeView('build.php?id=' + locationId);
-    }
-
-    static goToPage(page) {
-        if (this.getPagePathname() !== page) {
-            this.changeView(page);
-        }
-    }
-}
-
-class LocalStorageUtils {
-    static set(key, value) {
-        localStorage.setItem(key, value);
-    }
-
-    static getInt(key) {
-        return parseInt(localStorage.getItem(key));
-
-    }
-}
+const STORAGE_CURRENT_ACTION_AVAILABLE = STORAGE_PREFIX + 'STORAGE_CURRENT_ACTION_AVAILABLE';
+const STORAGE_CONTINUOUS_UPGRADE_NEXT_BUILDING_LOCATION_ID = STORAGE_PREFIX + 'STORAGE_CONTINUOUS_UPGRADE_NEXT_BUILDING_LOCATION_ID';
+const STORAGE_SEND_RESOURCE_MESSAGE = STORAGE_PREFIX + 'STORAGE_SEND_RESOURCE_MESSAGE';
+const STORAGE_SEND_RESOURCE_MESSAGE_TIMEOUT = STORAGE_PREFIX + 'STORAGE_SEND_RESOURCE_MESSAGE_TIMEOUT';
 
 class Configuration {
     static LOOP_MS = 1000;
     static REFRESH_LOOP_COUNT = 60;
+    static RESOURCE_VILLAGE_INDEX = -1;
 
     //When the action list changes, the version must be also changes
     //so that the bot will start from the desired action instead of the last executed action.
@@ -84,6 +43,7 @@ class Configuration {
 
     static incrementAndSaveCurrentAction() {
         Configuration.verifyAndSetVersion();
+        LocalStorageUtils.remove(STORAGE_CURRENT_ACTION_AVAILABLE);
         LocalStorageUtils.set(STORAGE_ACTION_LIST_INDEX, Configuration.getCurrentActionListIndex() + 1);
     }
 
@@ -97,6 +57,116 @@ class Configuration {
 
     static getCurrentAction() {
         return Configuration.ACTION_LIST[Configuration.getCurrentActionListIndex()]
+    }
+
+    static isCurrentActionAvailable() {
+        return LocalStorageUtils.getBoolean(STORAGE_CURRENT_ACTION_AVAILABLE);
+    }
+
+    static setCurrentActionAvailable(currentActionAvailable) {
+        LocalStorageUtils.set(STORAGE_CURRENT_ACTION_AVAILABLE, currentActionAvailable);
+    }
+}
+
+class ViewUtils {
+    static getPagePathname() {
+        return window.location.pathname;
+    }
+
+    static changeView(href) {
+        window.location.href = href;
+    }
+
+    static checkAndGoToBuildingDetail(locationId) {
+        if (ViewUtils.getPagePathname() !== Pages.BUILDING_DETAIL
+            || BuildingDetail.getBuildingDetail().locationId !== locationId) {
+                ViewUtils.changeView('build.php?id=' + locationId);
+            return true;
+        }
+        return false;
+    }
+
+    static checkAndGoToPage(page) {
+        if (ViewUtils.getPagePathname() !== page) {
+            ViewUtils.changeView(page);
+            return true;
+        }
+        return false;
+    }
+
+    static reload() {
+        window.location.reload();
+    }
+
+    static parseHourToSeconds(hour) {
+        let hourParts = hour.split(':');
+        return (+hourParts[0]) * 60 * 60 + (+hourParts[1]) * 60 + (+hourParts[2]);
+    }
+}
+
+class LocalStorageUtils {
+    static set(key, value) {
+        localStorage.setItem(key, value);
+    }
+
+    static get(key) {
+        return localStorage.getItem(key)
+    }
+
+    static remove(key) {
+        localStorage.removeItem(key);
+    }
+
+    static getInt(key) {
+        return parseInt(localStorage.getItem(key));
+    }
+
+    static getBoolean(key) {
+        return localStorage.getItem(key) === 'true';
+    }
+}
+
+class UIUtils {
+    static getResourceDepotLimit() {
+        return parseInt(document
+            .querySelector("#stockBar > div.warehouse > div > div")
+            .textContent.replace(/\D/g,''));
+    }
+
+    static getGranaryLimit() {
+        return parseInt(document
+            .querySelector("#stockBar > div.granary > div > div")
+            .textContent.replace(/\D/g,''));
+    }
+
+    static getWoodInStorage() {
+        return parseInt(document.querySelector("#l1").textContent.replace(".", ""));
+    }
+
+    static getClayInStorage() {
+        return parseInt(document.querySelector("#l2").textContent.replace(".", ""));
+    }
+
+    static getIronInStorage() {
+        return parseInt(document.querySelector("#l3").textContent.replace(".", ""));
+    }
+
+    static getCropInStorage() {
+        return parseInt(document.querySelector("#l4").textContent.replace(".", ""));
+    }
+
+    static getNumberOfConstructions() {
+        let constructionListElement = document.querySelector("#content > div.boxes.buildingList > div.boxes-contents.cf ul");
+        if (!!!constructionListElement) {
+            return 0;
+        } else {
+            return constructionListElement.children.length;
+        }
+    }
+
+    static getServerTime() {
+        return parseInt(
+            document.querySelector("#servertime > span").getAttribute("value"));
     }
 }
 
@@ -145,12 +215,16 @@ const Pages = {
 }
 
 const ActionType = {
+    CONTINUOUS_RESOURCE_UPGRADE: 'CONTINUOUS_RESOURCE_UPGRADE',
     UPGRADE: 'UPGRADE',
-    TRAIN_TROOP: 'TRAIN_TROOP'
+    BUILD: 'BUILD',
+    TRAIN_TROOP: 'TRAIN_TROOP',
 }
 
 class Action {
     type;
+
+    villageIndex;
 
     locationId;
     buildingType;
@@ -159,8 +233,10 @@ class Action {
     troopType;
     troopAmount;
     troopBuildingType;
-    constructor(type, locationId, buildingType, buildingLevel, troopType, troopAmount, troopBuildingType) {
+    constructor(type, villageIndex, locationId, buildingType, buildingLevel, troopType, troopAmount, troopBuildingType) {
         this.type = type;
+
+        this.villageIndex = villageIndex;
 
         this.buildingType = buildingType;
         this.buildingLevel = buildingLevel;
@@ -172,150 +248,19 @@ class Action {
     }
 }
 
-class ResourceBuilding {
-    locationId;
-    element;
-    type;
-    level;
-    underConstruction;
-
-    constructor(locationId) {
-        this.locationId = locationId
-        this.element = document.getElementsByClassName('buildingSlot' + this.locationId)[0];
-
-        let classList = this.element.classList;
-        this.type = parseInt(classList[3].replace("gid", ""));
-        this.level = parseInt(classList[classList.length - 1].replace("level", ""));
-        this.underConstruction = classList.contains("underConstruction");
-        if (this.underConstruction) {
-            this.level++;
-        }
-    }
-
-    goToDetailView() {
-        ViewUtils.goToBuildingDetail(this.locationId);
-    }
-
-    canUpgrade() {
-        let classList = this.element.classList;
-        return !classList.contains("notNow")
-            && !classList.contains("maxLevel");
-    }
-}
-
-class DorfBuilding {
-    locationId;
-    slot;
-    element;
-    type;
-
-    constructor(locationId) {
-        this.locationId = locationId
-        this.slot = 'a' + locationId;
-        this.element = document.getElementsByClassName('buildingSlot ' + this.slot)[0];
-        this.type = parseInt(this.element.classList[2].replace("g", ""));
-    }
-
-    goToDetailView() {
-        ViewUtils.goToBuildingDetail(this.locationId);
-    }
-
-    canUpgrade() {
-        let classList = this.element.children[0].classList;
-        return !classList.contains("notNow")
-            && !classList.contains("maxLevel");
-    }
-
-    isEmpty() {
-        return this.type === BuildingType.EMPTY;
-    }
-}
-
-class BuildingDetail {
-    locationId;
-    type;
-    level;
-    upgradeButton;
-
-    //Don't use this, use the #getBuildingDetail method.
-    constructor() {
-        let buildElementClasses = document.getElementById("build").classList;
-        this.type = parseInt(buildElementClasses[0].replace("gid", ""));
-        this.locationId = parseInt(window.location.search.replace("?id=", ""));
-        if (this.type !== 0) {
-            this.level = buildElementClasses[1].replace("level", "");
-            this.upgradeButton = document.querySelector("#build > div.upgradeBuilding > div.upgradeButtonsContainer button");
-        }
-    }
-
-    static getBuildingDetail() {
-        let b = new BuildingDetail();
-        if (b.type === BuildingType.EMPTY) {
-            return new EmptyBuildingDetail(b);
-        }
-        return b;
-    }
-
-    copy(buildingDetail) {
-        this.type = buildingDetail.type;
-        this.level = buildingDetail.level;
-        this.upgradeButton = buildingDetail.upgradeButton;
-        return this;
-    }
-
-    canUpgrade() {
-        return !!this.upgradeButton && this.upgradeButton.classList[1] === "green";
-    }
-
-    upgrade() {
-        if (this.canUpgrade()) {
-            this.upgradeButton.click();
-        }
-    }
-
-    isEmpty() {
-        return this.type === BuildingType.EMPTY;
-    }
-}
-
-class EmptyBuildingDetail extends BuildingDetail {
-    constructor(buildingDetail) {
-        super();
-        super.copy(buildingDetail);
-    }
-
-    parentIdEquals(elementId, type) {
-        let buildingElement = document.getElementById("contract_building" + type);
-        return !!buildingElement && buildingElement.parentElement.parentElement.id === elementId;
-    }
-
-    //isEmpty or parentIdEquals should be checked before this. Otherwise the return value might be null
-    getBuildButton(type) {
-        return document.querySelector("#contract_building" + type + " > .contractLink > button")
-    }
-
-    canBuildNow(type) {
-        return this.isEmpty && this.parentIdEquals("build", type) && this.getBuildButton(type).classList[1] === "green";
-    }
-
-    //Check if it is on the "soon" list or in "now" list but can't be build due to resources or full building queue
-    canBuildSoon(type) {
-        return this.isEmpty && (this.parentIdEquals("build_list_soon", type)
-            || (this.parentIdEquals("build", type) && this.getBuildButton(type).classList[1] === "gold"));
-    }
-
-    build(type) {
-        if (this.canBuildNow(type)) {
-            this.getBuildButton(type).click()
-        }
-    }
-}
-
 class Villages {
     element;
 
     constructor() {
         this.element = document.querySelector("#sidebarBoxVillagelist > div.content > ul").children;
+    }
+
+    getCurrentVillageIndex() {
+        for (let i = 0; i < this.element.length; i++) {
+            if (this.element[i].classList.contains("active")) {
+                return i;
+            }
+        }
     }
 
     goToVillage(villageIndex) {

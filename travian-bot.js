@@ -4,104 +4,101 @@
     let loopCount = 0;
     let villages = new Villages();
 
-    //For both Dorf buildings
-    function sortBuildingsByLevel(buildings) {
-        buildings.sort(
-            function(b1, b2) {
-                return b1.level - b2.level;
-        });
-        return buildings;
+    function hasResourceMessage() {
+        return !!MessageUtils.getResourceMessage();
     }
 
-    //For both Dorf buildings
-    function filterBuildingsByUpgradable(buildings) {
-        return buildings.filter(function(b){return b.canUpgrade();});
-    }
-
-    //For both Dorf buildings
-    function getBuildingsByType(type, buildings) {
-        return buildings.filter(function(building) {return building.type === type;});
-    }
-
-    //DELETE THIS
-    function handleResourceView() {
-        function getBuildings() {
-            let buildings = [];
-            for (let i = RESOURCE_LOCATION_ID_START; i <= RESOURCE_LOCATION_ID_END; i++) {
-                buildings.push(new ResourceBuilding(i));
-            }
-            return buildings;
-        }
-
-        let buildings = filterBuildingsByUpgradable(sortBuildingsByLevel(getBuildings()));
-        let building = buildings[0];
-        if (!!building) {
-            localStorage.setItem(ActionType.UPGRADE, building.locationId);
-            building.goToDetailView();
-        }
-    }
-
-    //DELETE THIS
-    function handleCityView() {
-        function getBuildings() {
-            let buildings = [];
-            for (let i = CITY_LOCATION_ID_START; i <= CITY_LOCATION_ID_END; i++) {
-                buildings.push(new DorfBuilding(i));
-            }
-            return buildings;
-        }
-
-    }
-
-    function handleBuildingView() {
-        let b = BuildingDetail.getBuildingDetail();
-
-        if (parseInt(localStorage.getItem(ActionType.UPGRADE)) === b.locationId
-            && b.canUpgrade()) {
-            localStorage.removeItem(ActionType.UPGRADE);
-            b.upgrade();
-        }
-    }
-
-    function executeUpgradeActionInResourceView(action) {
-        ViewUtils.goToPage(Pages.RESOURCES);
-    }
-
-    function executeUpgradeActionInCityView(action) {
-        if (ViewUtils.getPagePathname() !== Pages.BUILDING_DETAIL) {
-            ViewUtils.goToBuildingDetail(action.locationId);
-        }
-
-        let buildingDetail = BuildingDetail.getBuildingDetail();
-        if (buildingDetail.isEmpty()
-            && buildingDetail.canBuildNow(action.buildingType)) {
-            buildingDetail.build(action.buildingType);
+    function executeResourceMessage() {
+        let message = MessageUtils.getResourceMessage();
+        if (villages.getCurrentVillageIndex() !== message.senderVillageIndex) {
+            villages.goToVillage(message.senderVillageIndex);
         } else {
-            if (buildingDetail.level >= action.buildingLevel) {
-                Configuration.incrementAndSaveCurrentAction();
+            let marketDetails;
+            try {
+                marketDetails = BuildingDetail.getBuildingDetail();
+            } catch (ignored) {}
+
+            if (!!!marketDetails) {
+                if (ViewUtils.checkAndGoToPage(Pages.CITY)) {
+                    return;
+                }
+
+                let market = DorfUtils.getBuildingsByType(BuildingType.MARKET, DorfUtils.getDorfBuildings())[0];
+                if (ViewUtils.checkAndGoToBuildingDetail(market.locationId)) {
+                    return;
+                }
+            }
+
+            if (marketDetails.checkAndSwitchToResourceSendFavor()) {
                 return;
             }
-            if (buildingDetail.canUpgrade()) {
-                buildingDetail.upgrade();
+
+            let requestedWood = 0;
+            let requestedClay = 0;
+            let requestedIron = 0;
+            let requestedCrop = 0;
+            let totalRequestedResource = 0;
+            let merchantCapacity = marketDetails.getMerchantCapacity();
+
+            if (merchantCapacity === 0) {
+                return;
             }
-        }
-    }
 
-    //No null checks for actions.
-    function executeUpgradeAction(action) {
-        let buildingType = action.buildingType;
-        let locationId = action.locationId;
+            if (totalRequestedResource + message.wood <= merchantCapacity) {
+                totalRequestedResource = totalRequestedResource + message.wood;
+                requestedWood = message.wood;
+            } else {
+                requestedWood = merchantCapacity - totalRequestedResource;
+                totalRequestedResource = merchantCapacity;
+            }
 
-        let buildingInResourceView = DorfUtils.isBuildingInResourceView(buildingType);
-        if (buildingInResourceView !== DorfUtils.isLocationIdInResourceView(locationId)) {
-            console.warn("Skipping action. The building and the locationId are not in the same view. Action: " + action);
-            Configuration.incrementAndSaveCurrentAction();
-        }
+            if (totalRequestedResource + message.clay <= merchantCapacity) {
+                totalRequestedResource = totalRequestedResource + message.clay;
+                requestedClay = message.clay;
+            } else {
+                requestedClay = merchantCapacity - totalRequestedResource;
+                totalRequestedResource = merchantCapacity;
+            }
 
-        if (buildingInResourceView) {
-            executeUpgradeActionInResourceView(action);
-        } else {
-            executeUpgradeActionInCityView(action);
+            if (totalRequestedResource + message.iron <= merchantCapacity) {
+                totalRequestedResource = totalRequestedResource + message.iron;
+                requestedIron = message.iron;
+            } else {
+                requestedIron = merchantCapacity - totalRequestedResource;
+                totalRequestedResource = merchantCapacity;
+            }
+
+            if (totalRequestedResource + message.crop <= merchantCapacity) {
+                totalRequestedResource = totalRequestedResource + message.crop;
+                requestedCrop = message.crop;
+            } else {
+                requestedCrop = merchantCapacity - totalRequestedResource;
+                totalRequestedResource = merchantCapacity;
+            }
+
+            if (marketDetails.isOnSendResourceConfirmationPage()) {
+                if (totalRequestedResource === (message.wood + message.clay + message.iron + message.crop)) {
+                    MessageUtils.clearResourceMessage();
+                } else {
+                    let newMessage = new SendResourceMessage(
+                        message.senderVillageIndex,
+                        message.receiverVillageIndex,
+                        message.wood - requestedWood,
+                        message.clay - requestedClay,
+                        message.iron - requestedIron,
+                        message.crop - requestedCrop,
+                    );
+
+                    MessageUtils.recordResourceMessage(newMessage);
+                }
+
+                let merchantTimeout = UIUtils.getServerTime() + marketDetails.getMerchantRoundTripSeconds() + 90;
+                LocalStorageUtils.set(STORAGE_SEND_RESOURCE_MESSAGE_TIMEOUT, merchantTimeout)
+            }
+
+            marketDetails.sendResource(
+                requestedWood, requestedClay, requestedIron, requestedCrop,
+                villages.getVillageName(message.receiverVillageIndex));
         }
     }
 
@@ -111,9 +108,16 @@
             return;
         }
         console.log("Executing action: " + currentAction);
+        if (currentAction.villageIndex !== villages.getCurrentVillageIndex()) {
+            villages.goToVillage(currentAction.villageIndex);
+            return;
+        }
         switch (currentAction.type) {
             case ActionType.UPGRADE:
                 executeUpgradeAction(currentAction);
+                break;
+            case ActionType.CONTINUOUS_RESOURCE_UPGRADE:
+                executeContinuousResourceUpgrade(currentAction);
                 break;
             default:
                 console.log("Unknown action type: " + currentAction.type);
@@ -124,19 +128,20 @@
         // debugger;
         //Skip the first loop so that configuration changes take effect.
         if (loopCount !== 0) {
-            executeCurrentAction();
+            //Messages take priority
+            if (hasResourceMessage()) {
+                executeResourceMessage();
+            } else {
+                executeCurrentAction();
+            }
 
             if (loopCount > Configuration.REFRESH_LOOP_COUNT) {
-                window.location.reload();
+                ViewUtils.reload();
             }
         }
         loopCount++;
         setTimeout(main, Configuration.LOOP_MS);
     }
-
-    Configuration.ACTION_LIST_VERSION = 2
-    Configuration.ACTION_LIST.push(
-        new Action(ActionType.UPGRADE, 32, BuildingType.MANSION, 10));
 
     main();
     // Your code here...
