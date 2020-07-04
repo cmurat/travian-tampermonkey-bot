@@ -17,5 +17,21 @@
 (function() {
     'use strict';
 
+    // Configuration.RESOURCE_VILLAGE_INDEX = 1
+    // Configuration.ACTION_LIST_VERSION = 2
+    // Configuration.ACTION_LIST.push(
+    //     new Action(ActionType.CONTINUOUS_RESOURCE_UPGRADE,
+    //         3, -1, -1, 3),
+    //     new Action(ActionType.UPGRADE,
+    //         3, 19, BuildingType.DEPOT, 15),
+    //     new Action(ActionType.UPGRADE,
+    //         3, 20, BuildingType.GRANARY, 15),
+    //     new Action(ActionType.CONTINUOUS_RESOURCE_UPGRADE,
+    //         3, -1, -1, 10),
+    //     new Action(ActionType.CONTINUOUS_RESOURCE_UPGRADE,
+    //         3, -1, -1, 10)
+    // );
+
+
     // Your code here...
 })();
